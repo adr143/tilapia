@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href='{{url_for("static", filename="styles.css")}}'>
+    <title>🐟Tilapia Counter🔍</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>🐟Tilapia Counter🔍</h1>
+    <div class="container">
+        <!-- Stats Section -->
+        <div class="stats-container">
+          <table class="stats-table">
+            <tr>
+              <th>Metric</th>
+              <th>Value</th>
+            </tr>
+            <tr>
+              <td>L → R</td>
+              <td id="l2r" class="green">0</td>
+            </tr>
+            <tr>
+              <td>R → L</td>
+              <td id="r2l" class="red">0</td>
+            </tr>
+            <tr>
+              <td>FPS</td>
+              <td id="fps" class="blue">0</td>
+            </tr>
+            <tr>
+              <td>Last Object</td>
+              <td id="last">--</td>
+            </tr>
+          </table>
+    
+          <div class="last-object">
+            <strong>Last Object Details:</strong>
+            <br />
+            <span id="last-object-info">--</span>
+          </div>
+        </div>
+    
+        <!-- Video Section -->
+        <div class="video-container">
+          <img id="video" alt="Live Video Feed" />
+        </div>
+      </div>
+    
+      <script>
+        const socket = io();
+    
+        socket.on("video_frame", (data) => {
+          document.getElementById("video").src = "data:image/jpeg;base64," + data.image;
+        });
+    
+        socket.on("count_update", (data) => {
+          document.getElementById("l2r").innerText = data.left_to_right;
+          document.getElementById("r2l").innerText = data.right_to_left;
+          document.getElementById("fps").innerText = data.fps;
+          const lastText = `${data.last_object.id} ${data.last_object.dir}`;
+          document.getElementById("last").innerText = lastText;
+          document.getElementById("last-object-info").innerText = lastText;
+        });
+      </script>
+</body>
+</html>

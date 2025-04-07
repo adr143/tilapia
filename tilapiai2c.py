@@ -1,0 +1,167 @@
+﻿import cv2
+import numpy as np
+import time
+import threading
+from ultralytics import YOLO
+import supervision as sv
+from RPLCD.i2c import CharLCD
+
+
+BUFFER_FRAMES = 5
+LCD_UPDATE_INTERVAL = 0.5 
+FRAME_SKIP = 1
+RESIZE_FACTOR = 0.75
+
+
+lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4)
+
+
+model = YOLO("nano.pt")  
+tracker = sv.ByteTrack()
+
+class TrackingState:
+    def __init__(self):
+        self.object_tracker = {}
+        self.history_buffer = {}
+        self.left_to_right_count = 0
+        self.right_to_left_count = 0
+        self.line_position = None
+        self.crossed_objects = []
+        self.lock = threading.Lock()
+        self.last_lcd_update = 0
+        self.fps = 0
+        self.frame_count = 0
+        self.start_time = time.time()
+
+state = TrackingState()
+
+# --- Frame Processing ---
+def preprocess_frame(frame: np.ndarray) -> np.ndarray:
+    """Resize and optimize frame for processing"""
+    if RESIZE_FACTOR < 1.0:
+        return cv2.resize(frame, (0, 0), fx=RESIZE_FACTOR, fy=RESIZE_FACTOR)
+    return frame
+
+def process_frame(frame: np.ndarray) -> np.ndarray:
+    if frame is None:
+        return frame
+
+    if state.line_position is None:
+        h, w, _ = frame.shape
+        state.line_position = int(w * 0.5)  
+
+    
+    results = model(frame, imgsz=360, verbose=False, conf=0.45)[0]  
+    detections = sv.Detections.from_ultralytics(results)
+    detections = tracker.update_with_detections(detections)
+
+
+    for idx, box in enumerate(detections.xyxy):
+        object_id = detections.tracker_id[idx] if detections.tracker_id is not None else idx
+        x_center = int((box[0] + box[2]) / 2)
+        class_name = detections.class_id[idx] if detections.class_id is not None else "Unknown"
+
+        with state.lock:
+            if object_id not in state.object_tracker:
+                state.object_tracker[object_id] = x_center
+                state.history_buffer[object_id] = ['not crossed'] * BUFFER_FRAMES
+                continue
+
+            prev_x = state.object_tracker[object_id]
+            state.object_tracker[object_id] = x_center
+            state.history_buffer[object_id].append('left' if x_center < state.line_position else 'right')
+            state.history_buffer[object_id] = state.history_buffer[object_id][-BUFFER_FRAMES:]
+
+            if 'left' in state.history_buffer[object_id] and 'right' in state.history_buffer[object_id]:
+                if prev_x < state.line_position <= x_center:
+                    state.left_to_right_count += 1
+                    state.history_buffer[object_id] = ['crossed left to right'] * BUFFER_FRAMES
+                    state.crossed_objects.append((object_id, class_name, "L→R"))
+                elif prev_x > state.line_position >= x_center:
+                    state.right_to_left_count += 1
+                    state.history_buffer[object_id] = ['crossed right to left'] * BUFFER_FRAMES
+                    state.crossed_objects.append((object_id, class_name, "R→L"))
+
+    # Annotate frame
+    box_annotator = sv.BoxAnnotator()
+    annotated_frame = box_annotator.annotate(frame.copy(), detections=detections)
+    cv2.line(annotated_frame, (state.line_position, 0), (state.line_position, frame.shape[0]), (0, 255, 255), 2)
+
+    return annotated_frame
+
+def lcd_update_thread():
+    while True:
+        current_time = time.time()
+        if current_time - state.last_lcd_update >= LCD_UPDATE_INTERVAL:
+            with state.lock:
+                last_obj = state.crossed_objects[-1] if state.crossed_objects else ("--", "--", "--")
+                lcd_lines = [
+                    f"L→R: {state.left_to_right_count}",
+                    f"R→L: {state.right_to_left_count}",
+                    f"FPS: {state.fps:.1f}",
+                    f"ID{last_obj[0]} {last_obj[2]}"
+                ]
+
+                try:
+                    # lcd.clear()
+                    for i, line in enumerate(lcd_lines):
+                        lcd.cursor_pos = (i, 0)
+                        lcd.write_string(line.ljust(20))
+                except:
+                    pass  # Prevent thread crash on LCD errors
+
+            state.last_lcd_update = current_time
+        time.sleep(0.1)
+
+
+def main():
+  
+    threading.Thread(target=lcd_update_thread, daemon=True).start()
+
+    video_source = 0  
+    cap = cv2.VideoCapture(video_source)
+    if not cap.isOpened():
+        print("Error: Cannot open video source")
+        return
+
+    try:
+        frame_counter = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            frame_counter += 1
+            if frame_counter % FRAME_SKIP != 0:
+                continue  #
+
+            
+            processed_frame = preprocess_frame(frame)
+            annotated_frame = process_frame(processed_frame)
+
+            
+            with state.lock:
+                state.frame_count += 1
+                elapsed = time.time() - state.start_time
+                if elapsed >= 1.0:
+                    state.fps = state.frame_count / elapsed
+                    state.frame_count = 0
+                    state.start_time = time.time()
+
+            
+            if FRAME_SKIP == 1:  
+                cv2.imshow("Tracking Feed", annotated_frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+
+    except KeyboardInterrupt:
+        print("Stopped by user")
+
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+        lcd.clear()
+        lcd.write_string("Stopped.")
+
+# if __name__ == "__main__":
+#     main()

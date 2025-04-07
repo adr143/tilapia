@@ -1,0 +1,122 @@
+:root {
+      --primary: #2f3e46;
+      --secondary: #354f52;
+      --accent: #52796f;
+      --highlight: #84a98c;
+      --light-bg: #cad2c5;
+      --danger: #ff595e;
+      --success: #06d6a0;
+      --info: #118ab2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--light-bg);
+      color: #fff;
+    }
+
+    h1 {
+      text-align: center;
+      color: var(--primary);
+      margin-top: 20px;
+    }
+
+    .container {
+      display: flex;
+      height: 85vh;
+      width: 90%;
+      max-width: 1300px;
+      margin: 20px auto;
+      background-color: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+    }
+
+    .stats-container {
+      width: 40%;
+      background-color: var(--primary);
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--accent);
+      font-size: 18px;
+    }
+
+    .stats-table th {
+      color: var(--highlight);
+      font-size: 20px;
+    }
+
+    .stats-table td {
+      font-weight: bold;
+    }
+
+    .green {
+      color: var(--success);
+    }
+
+    .red {
+      color: var(--danger);
+    }
+
+    .blue {
+      color: var(--info);
+    }
+
+    .video-container {
+      width: 60%;
+      background-color: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px;
+    }
+
+    #video {
+      width: 100%;
+      max-width: 640px;
+      height: auto;
+      border: 4px solid var(--secondary);
+      border-radius: 8px;
+    }
+
+    .last-object {
+      margin-top: 30px;
+      font-size: 18px;
+      color: #fff;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .stats-container, .video-container {
+        width: 100%;
+        height: auto;
+      }
+
+      .stats-table td, .stats-table th {
+        font-size: 16px;
+      }
+    }
