@@ -40,6 +40,7 @@
             <br />
             <span id="last-object-info">--</span>
           </div>
+          <button id="resetButton">Reset Count</button>
         </div>
     
         <!-- Video Section -->
@@ -52,7 +53,7 @@
         const socket = io();
     
         socket.on("video_frame", (data) => {
-          document.getElementById("video").src = "data:image/jpeg;base64," + data.image;
+          document.getElementById("video").src = data.image;
         });
     
         socket.on("count_update", (data) => {
@@ -62,6 +63,19 @@
           const lastText = `${data.last_object.id} ${data.last_object.dir}`;
           document.getElementById("last").innerText = lastText;
           document.getElementById("last-object-info").innerText = lastText;
+        });
+
+        document.getElementById('resetButton').addEventListener('click', function() {
+            fetch('/reset_count', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data.message);  // Optional: Show a message like "Reset successful"
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
         });
       </script>
 </body>

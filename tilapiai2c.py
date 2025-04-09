@@ -6,7 +6,6 @@ from ultralytics import YOLO
 import supervision as sv
 from RPLCD.i2c import CharLCD
 
-
 BUFFER_FRAMES = 5
 LCD_UPDATE_INTERVAL = 0.5 
 FRAME_SKIP = 1
@@ -16,7 +15,7 @@ RESIZE_FACTOR = 0.75
 lcd = CharLCD('PCF8574', 0x27, cols=20, rows=4)
 
 
-model = YOLO("nano.pt")  
+model = YOLO("newest3.pt")  
 tracker = sv.ByteTrack()
 
 class TrackingState:
@@ -32,6 +31,7 @@ class TrackingState:
         self.fps = 0
         self.frame_count = 0
         self.start_time = time.time()
+        self.last_frame_time = None
 
 state = TrackingState()
 
@@ -51,7 +51,7 @@ def process_frame(frame: np.ndarray) -> np.ndarray:
         state.line_position = int(w * 0.5)  
 
     
-    results = model(frame, imgsz=360, verbose=False, conf=0.45)[0]  
+    results = model(frame, imgsz=192, verbose=False, conf=0.05)[0]  
     detections = sv.Detections.from_ultralytics(results)
     detections = tracker.update_with_detections(detections)
 
@@ -113,7 +113,6 @@ def lcd_update_thread():
             state.last_lcd_update = current_time
         time.sleep(0.1)
 
-
 def main():
   
     threading.Thread(target=lcd_update_thread, daemon=True).start()
@@ -131,13 +130,12 @@ def main():
             if not ret:
                 break
 
-            frame_counter += 1
-            if frame_counter % FRAME_SKIP != 0:
-                continue  #
+            #frame_counter += 1
+            #if frame_counter % FRAME_SKIP != 0:
+            #    continue  #
 
-            
-            processed_frame = preprocess_frame(frame)
-            annotated_frame = process_frame(processed_frame)
+            #processed_frame = preprocess_frame(frame)
+            #annotated_frame = process_frame(processed_frame)
 
             
             with state.lock:
